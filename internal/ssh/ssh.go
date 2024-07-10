@@ -3,43 +3,40 @@ package ssh
 
 import (
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 
 	"golang.org/x/crypto/ssh"
 )
 
-func SigninToSSH(host, user string) error {
+func SigninToSSH(host, user, password string) error {
 	// Get user's home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %v", err)
-	}
+	// home, err := os.UserHomeDir()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get user home directory: %v", err)
+	// }
 
-	// Read private key
-	keyFile, err := os.Open(filepath.Join(home, ".ssh", "id_rsa"))
-	if err != nil {
-		return fmt.Errorf("failed to open private key file: %v", err)
-	}
-	defer keyFile.Close()
+	// // Read private key
+	// keyFile, err := os.Open(filepath.Join(home, ".ssh", "id_rsa"))
+	// if err != nil {
+	// 	return fmt.Errorf("failed to open private key file: %v", err)
+	// }
+	// defer keyFile.Close()
 
-	key, err := io.ReadAll(keyFile)
-	if err != nil {
-		return fmt.Errorf("failed to read private key: %v", err)
-	}
+	// key, err := io.ReadAll(keyFile)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to read private key: %v", err)
+	// }
 
 	// Create signer
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return fmt.Errorf("failed to parse private key: %v", err)
-	}
+	// signer, err := ssh.ParsePrivateKey(key)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to parse private key: %v", err)
+	// }
 
 	// Configure SSH client
 	config := &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
+			ssh.Password(password),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}

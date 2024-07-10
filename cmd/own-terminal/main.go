@@ -32,20 +32,21 @@ func main() {
 		switch command {
 
 		case "help":
-			fmt.Print("signinToSSh")
-			fmt.Print("addTodo")
-			fmt.Print("viewTodos")
-			fmt.Print("deleteTodo")
-			fmt.Print("exit")
+			fmt.Print("     signinToSSH\n")
+			fmt.Print("     addTodo\n")
+			fmt.Print("     viewTodos\n")
+			fmt.Print("     deleteTodo\n")
+			fmt.Print("     exit\n")
 
 		case "signinToSSH":
 			if len(args) < 3 {
-				fmt.Println("Usage: signinToSSH <host> <user>")
+				fmt.Println("Usage: signinToSSH <host> <user> <password>")
 				continue
 			}
 			host := args[1]
 			user := args[2]
-			err := ssh.SigninToSSH(host, user)
+			password := args[3]
+			err := ssh.SigninToSSH(host, user, password)
 			utils.CheckErr(err)
 
 		case "addTodo":
