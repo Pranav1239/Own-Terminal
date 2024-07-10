@@ -1,40 +1,87 @@
-// Package todo provides functions for managing to-do items.
+// internal/todo/todo.go
 package todo
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"os"
-// )
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+)
 
-// // Task struct represents a single to-do item.
-// type Task struct {
-// 	ID   string `json:"id"`
-// 	Text string `json:"text"`
-// }
+type Todo struct {
+	Tasks []string `json:"tasks"`
+}
 
-// var todosFile = "data/todos.json"
+const todoFile = "todos.json"
 
-// // AddTodo adds a new to-do item with the given text.
-// func AddTodo(text string) error {
-// 	todos, err := readTodos()
-// 	if err != nil {
-// 		return err
-// 	}
+// AddTodo adds a new todo item to the list
+func AddTodo(task string) error {
+	todos, err := loadTodos()
+	if err != nil {
+		return err
+	}
 
-// 	task := Task{
-// 		ID:   fmt.Sprintf("%d", len(todos)+1),
-// 		Text: text,
-// 	}
-// 	todos = append(todos, task)
+	todos.Tasks = append(todos.Tasks, task)
+	return saveTodos(todos)
+}
 
-// 	err = saveTodos(todos)
-// 	if err != nil {
-// 		return err
-// 	}
+// ViewTodos returns all todo items
+func ViewTodos() ([]string, error) {
+	todos, err := loadTodos()
+	if err != nil {
+		return nil, err
+	}
 
-// 	return nil
-// }
+	return todos.Tasks, nil
+}
 
-// // ViewTodos retrieves and returns all stored to-do items
+// DeleteTodo removes a todo item by its ID (index + 1)
+func DeleteTodo(taskID string) error {
+	id, err := strconv.Atoi(taskID)
+	if err != nil {
+		return fmt.Errorf("invalid task ID: %v", err)
+	}
+
+	todos, err := loadTodos()
+	if err != nil {
+		return err
+	}
+
+	if id < 1 || id > len(todos.Tasks) {
+		return fmt.Errorf("task ID out of range")
+	}
+
+	// Remove the task (remember, slice is 0-indexed)
+	todos.Tasks = append(todos.Tasks[:id-1], todos.Tasks[id:]...)
+	return saveTodos(todos)
+}
+
+// loadTodos reads todos from the JSON file
+func loadTodos() (*Todo, error) {
+	todos := &Todo{}
+
+	file, err := os.ReadFile(todoFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return todos, nil // Return empty todos if file doesn't exist
+		}
+		return nil, err
+	}
+
+	err = json.Unmarshal(file, todos)
+	if err != nil {
+		return nil, err
+	}
+
+	return todos, nil
+}
+
+// saveTodos writes todos to the JSON file
+func saveTodos(todos *Todo) error {
+	file, err := json.Marshal(todos)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(todoFile, file, 0644)
+}
