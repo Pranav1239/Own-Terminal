@@ -8,6 +8,7 @@ import (
 
 	"github.com/gookit/color"
 
+	scraper "github.com/Pranav1239/Own-Terminal/internal/scraping"
 	ssh "github.com/Pranav1239/Own-Terminal/internal/ssh"
 	todo "github.com/Pranav1239/Own-Terminal/internal/todo"
 	user "github.com/Pranav1239/Own-Terminal/internal/user"
@@ -15,7 +16,6 @@ import (
 )
 
 func main() {
-	// Display welcome message
 	username := user.GetUsername()
 	utils.PrintWelcomeMessage(username)
 	// utils.RunNeofetch()
@@ -42,6 +42,9 @@ func main() {
 		case "todos":
 			handleTodosCommand(scanner)
 
+		case "scraper":
+			handleScraperCommand(args)
+
 		case "exit":
 			fmt.Println("Exiting Own-terminal.")
 			return
@@ -59,6 +62,7 @@ func main() {
 func helpCommand() {
 	color.Cyan.Println("     signinToSSH")
 	color.Green.Println("     todos")
+	color.Green.Println("     scraper")
 	color.Blue.Println("     exit")
 }
 
@@ -71,6 +75,17 @@ func handleSSHCommand(args []string) {
 	user := args[2]
 	password := args[3]
 	err := ssh.SigninToSSH(host, user, password)
+	utils.CheckErr(err)
+}
+
+func handleScraperCommand(args []string) {
+	fmt.Println("1 : Product scrap")
+	if len(args) < 1 {
+		fmt.Println("Usage: signinToSSH <scrape> ")
+		return
+	}
+	scrap := args[1]
+	err := scraper.MainScrapper(scrap)
 	utils.CheckErr(err)
 }
 

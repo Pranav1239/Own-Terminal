@@ -1,82 +1,104 @@
-// internal/ssh/ssh.go
 package ssh
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// SigninToSSH connects to an SSH server using the provided host, user, and password.
 func SigninToSSH(host, user, password string) error {
-	// Get user's home directory
-	// home, err := os.UserHomeDir()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get user home directory: %v", err)
-	// }
+	// Load private key from environment variable or file
+	privateKey := []byte(os.Getenv("SSH_PRIVATE_KEY"))
 
-	// // Read private key
-	// keyFile, err := os.Open(filepath.Join(home, ".ssh", "id_rsa"))
-	// if err != nil {
-	// 	return fmt.Errorf("failed to open private key file: %v", err)
-	// }
-	// defer keyFile.Close()
+	// Parse the private key
+	signer, err := ssh.ParsePrivateKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to parse private key: %v", err)
+	}
 
-	// key, err := io.ReadAll(keyFile)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to read private key: %v", err)
-	// }
+	// Load the known_hosts file
+	hostKeyCallback, err := knownhosts.New("~/.ssh/known_hosts")
+	if err != nil {
+		return fmt.Errorf("failed to load known_hosts file: %v", err)
+	}
 
-	// Create signer
-	// signer, err := ssh.ParsePrivateKey(key)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to parse private key: %v", err)
-	// }
-
-	// Configure SSH client
+	// SSH client configuration
 	config := &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
 			ssh.Password(password),
+			ssh.PublicKeys(signer),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 	}
 
-	// Connect to SSH server
-	client, err := ssh.Dial("tcp", host+":22", config)
+	conn, err := ssh.Dial("tcp", host, config)
 	if err != nil {
-		return fmt.Errorf("failed to connect to SSH server: %v", err)
+		return fmt.Errorf("failed to dial: %v", err)
 	}
-	defer client.Close()
+	defer conn.Close()
 
-	// Create a session
-	session, err := client.NewSession()
+	session, err := conn.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create session: %v", err)
 	}
 	defer session.Close()
 
-	// Set up terminal modes
-	modes := ssh.TerminalModes{
-		ssh.ECHO:          0,     // disable echoing
-		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdin pipe: %v", err)
 	}
 
-	// Request pseudo terminal
-	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-		return fmt.Errorf("request for pseudo terminal failed: %v", err)
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %v", err)
 	}
 
-	// Start remote shell
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %v", err)
+	}
+
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			fmt.Println(scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Printf("error reading stdout: %v\n", err)
+		}
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			fmt.Println(scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Printf("error reading stderr: %v\n", err)
+		}
+	}()
+
 	if err := session.Shell(); err != nil {
 		return fmt.Errorf("failed to start shell: %v", err)
 	}
 
-	// Wait for session to finish
-	if err := session.Wait(); err != nil {
-		return fmt.Errorf("failed to wait for session: %v", err)
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("$ ")
+		if !scanner.Scan() {
+			break
+		}
+		cmd := scanner.Text()
+		if _, err := io.WriteString(stdin, cmd+"\n"); err != nil {
+			return fmt.Errorf("failed to write to stdin: %v", err)
+		}
 	}
 
-	fmt.Println("SSH session completed successfully")
-	return nil
+	return session.Wait()
 }
